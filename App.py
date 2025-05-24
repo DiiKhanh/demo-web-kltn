@@ -8,40 +8,40 @@ import time
 from pathlib import Path
 import pandas as pd
 import plotly.express as px
-import importlib # Required for dynamic imports
+import importlib  # Required for dynamic imports
 
 # Cấu hình đường dẫn
 current_dir = os.path.dirname(os.path.abspath(__file__))
-root_path = os.path.abspath(os.path.join(current_dir, '..', '..'))
-sys.path.append(root_path)
+# Modified: Use current_dir since team_code_densenet.py is in the same directory as App.py
+sys.path.append(current_dir)
 
 # --- CORRECTED: Ensure helper_code functions are imported ---
 try:
     from helper_code import load_text_file, get_variable, get_cpc
-    # get_cpc might not be used directly in this script but is often part of the helper set.
-    # If it's not needed, you can remove it.
 except ImportError as e:
-    st.error(f"Không thể import helper_code: {e}. Đảm bảo helper_code.py tồn tại và trong PYTHONPATH.")
-    # Optionally stop the app if helper_code is critical
-    # st.stop()
+    st.error(f"Không thể import helper_code: {e}. Đảm bảo helper_code.py tồn tại trong {current_dir}.")
+    st.stop()
 
-
-# --- Dynamic Importer (no changes from previous correct version) ---
+# --- Dynamic Importer with Debug Output ---
 def get_model_functions(model_module_name):
     """
     Dynamically imports load_challenge_models and run_challenge_models
     from the specified model module.
     """
+    st.write(f"Debug: Attempting to import module '{model_module_name}'")
+    st.write(f"Debug: Current sys.path: {sys.path}")
     try:
         module = importlib.import_module(model_module_name)
+        st.write(f"Debug: Successfully imported module '{model_module_name}'")
         load_models_func = getattr(module, 'load_challenge_models')
         run_models_func = getattr(module, 'run_challenge_models')
+        st.write(f"Debug: Found functions in '{model_module_name}'")
         return load_models_func, run_models_func
-    except ImportError:
-        st.error(f"❌ Không thể import module: {model_module_name}. Hãy đảm bảo file tồn tại và đúng tên (ví dụ: {model_module_name}.py).")
+    except ImportError as e:
+        st.error(f"❌ Không thể import module: {model_module_name}. Error: {str(e)}. Đảm bảo file {model_module_name}.py tồn tại trong {current_dir}.")
         return None, None
-    except AttributeError:
-        st.error(f"❌ Module {model_module_name} không chứa hàm 'load_challenge_models' hoặc 'run_challenge_models'.")
+    except AttributeError as e:
+        st.error(f"❌ Module {model_module_name} thiếu hàm 'load_challenge_models' hoặc 'run_challenge_models'. Error: {str(e)}")
         return None, None
     except Exception as e:
         st.error(f"❌ Lỗi không xác định khi import từ {model_module_name}: {str(e)}")
@@ -99,7 +99,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-
 class EEGPredictor:
     def __init__(self):
         self.models = None
@@ -115,7 +114,6 @@ class EEGPredictor:
             self.current_model_name = model_name
         self.load_challenge_models_dynamic = load_func
         self.run_challenge_models_dynamic = run_func
-        # st.info(f"Sẵn sàng sử dụng model: {model_name}") # Can be a bit noisy, consider removing or making conditional
 
     def load_models(self, model_physical_folder):
         if not self.load_challenge_models_dynamic:
@@ -143,7 +141,7 @@ class EEGPredictor:
             if not self.is_loaded:
                 st.warning(f"Models cho {self.current_model_name} chưa được tải. Đang thử tải...")
                 if not self.load_models(model_physical_folder):
-                     return None, None, None
+                    return None, None, None
 
             patient_folder = os.path.join(temp_data_folder, patient_id)
             if not os.path.exists(patient_folder):
@@ -155,18 +153,12 @@ class EEGPredictor:
             if not hea_files or not mat_files:
                 st.error(f"Thiếu file .hea hoặc .mat trong folder {patient_id}")
                 return None, None, None
-            # st.info(f"📁 Patient {patient_id}: {len(hea_files)} .hea, {len(mat_files)} .mat") # Can be noisy
             metadata_file = os.path.join(patient_folder, f"{patient_id}.txt")
             actual_outcome = None
             if os.path.exists(metadata_file):
                 try:
-                    # Ensure load_text_file and get_variable are available in this scope
-                    # They should be if imported globally at the top.
                     meta_data = load_text_file(metadata_file)
                     actual_outcome = get_variable(meta_data, 'Outcome', str) if meta_data else None
-                except NameError: # If helper functions weren't imported for some reason
-                    st.error("Lỗi: Hàm load_text_file hoặc get_variable không được định nghĩa.")
-                    actual_outcome = "Error reading metadata"
                 except Exception as e_meta:
                     st.warning(f"Không thể đọc outcome từ metadata file {metadata_file}: {e_meta}")
                     pass
@@ -176,7 +168,6 @@ class EEGPredictor:
                     f.write("Age: Unknown\n")
                     f.write("Sex: Unknown\n")
                     f.write("Outcome: Unknown\n")
-                # st.info(f"📝 Đã tạo file metadata tạm: {patient_id}.txt") # Can be noisy
 
             with st.spinner(f"Đang predict cho patient {patient_id} sử dụng {self.current_model_name}..."):
                 outcome_binary, outcome_probability = self.run_challenge_models_dynamic(
@@ -189,7 +180,8 @@ class EEGPredictor:
 
 def debug_folder_structure(base_path, level=0, max_level=3):
     debug_info = []
-    if level > max_level: return debug_info
+    if level > max_level:
+        return debug_info
     try:
         items = os.listdir(base_path)
         for item in items:
@@ -206,11 +198,14 @@ def debug_folder_structure(base_path, level=0, max_level=3):
                     if level < max_level:
                         sub_debug = debug_folder_structure(item_path, level + 1, max_level)
                         debug_info.extend(sub_debug)
-                except PermissionError: debug_info.append(f"{indent}  → (Permission denied)")
+                except PermissionError:
+                    debug_info.append(f"{indent}  → (Permission denied)")
             else:
                 file_ext = os.path.splitext(item)[1]
-                if file_ext in ['.hea', '.mat', '.txt']: debug_info.append(f"{indent}📄 {item}")
-    except Exception as e: debug_info.append(f"{indent}❌ Error reading {base_path}: {str(e)}")
+                if file_ext in ['.hea', '.mat', '.txt']:
+                    debug_info.append(f"{indent}📄 {item}")
+    except Exception as e:
+        debug_info.append(f"{indent}❌ Error reading {base_path}: {str(e)}")
     return debug_info
 
 def extract_uploaded_files(uploaded_files, temp_dir):
@@ -218,15 +213,16 @@ def extract_uploaded_files(uploaded_files, temp_dir):
     for uploaded_file in uploaded_files:
         file_name = uploaded_file.name
         file_path = os.path.join(temp_dir, file_name)
-        with open(file_path, "wb") as f: f.write(uploaded_file.getbuffer())
-        # st.info(f"📁 Saved file: {file_name} ({os.path.getsize(file_path) / (1024*1024):.2f} MB)")
+        with open(file_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
         if file_name.endswith('.zip'):
             try:
                 with zipfile.ZipFile(file_path, 'r') as zip_ref:
                     zip_ref.extractall(temp_dir)
                     extracted_folders_map[temp_dir] = True
                     st.success(f"✅ Đã giải nén: {file_name} vào {temp_dir}")
-            except Exception as e: st.error(f"❌ Lỗi khi giải nén {file_name}: {str(e)}")
+            except Exception as e:
+                st.error(f"❌ Lỗi khi giải nén {file_name}: {str(e)}")
     return list(extracted_folders_map.keys())
 
 def find_patient_folders(base_path, debug_mode=False):
@@ -236,21 +232,22 @@ def find_patient_folders(base_path, debug_mode=False):
         st.markdown("**📁 Folder Structure (during find_patient_folders):**")
         debug_info = debug_folder_structure(base_path, max_level=2)
         if debug_info:
-            for line in debug_info[:30]: st.text(line)
-            if len(debug_info) > 30: st.text(f"... and {len(debug_info) - 30} more items")
+            for line in debug_info[:30]:
+                st.text(line)
+            if len(debug_info) > 30:
+                st.text(f"... and {len(debug_info) - 30} more items")
     for root, dirs, files in os.walk(base_path):
         hea_files = [f for f in files if f.endswith('.hea')]
         mat_files = [f for f in files if f.endswith('.mat')]
         if debug_mode and (hea_files or mat_files or dirs):
             relative_path = os.path.relpath(root, base_path)
-            # st.text(f"📂 Checking: {relative_path if relative_path != '.' else 'root of extracted files'}")
-            # st.text(f"   → .hea: {len(hea_files)}, .mat: {len(mat_files)}, subdirs: {len(dirs)}")
         if hea_files and mat_files:
             folder_name = os.path.basename(root)
             if folder_name not in patient_folders_dict:
-                if root != base_path or (root == base_path and not any(os.path.isdir(os.path.join(root, d)) for d in dirs if d != "prediction_input_data")): # Avoid the prediction_input_dir itself
+                if root != base_path or (root == base_path and not any(os.path.isdir(os.path.join(root, d)) for d in dirs if d != "prediction_input_data")):
                     patient_folders_dict[folder_name] = root
-                    if debug_mode: st.success(f"✅ Tentatively found patient: {folder_name} at {root}")
+                    if debug_mode:
+                        st.success(f"✅ Tentatively found patient: {folder_name} at {root}")
     patient_folders = list(patient_folders_dict.items())
     if debug_mode and not patient_folders:
         st.warning(f"No patient folders found directly in {base_path} or its subdirectories.")
