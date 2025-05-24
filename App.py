@@ -28,8 +28,8 @@ def get_model_functions(model_module_name):
     Dynamically imports load_challenge_models and run_challenge_models
     from the specified model module.
     """
-    st.write(f"Debug: Attempting to import module '{model_module_name}'")
-    st.write(f"Debug: Current sys.path: {sys.path}")
+    # st.write(f"Debug: Attempting to import module '{model_module_name}'")
+    # st.write(f"Debug: Current sys.path: {sys.path}")
     try:
         module = importlib.import_module(model_module_name)
         st.write(f"Debug: Successfully imported module '{model_module_name}'")
