@@ -146,7 +146,7 @@ PARAMS_XGB = {"max_depth": 8, "eval_metric": "auc", "nthread": 8}
 PREPROCESSED_DATA_FOLDER = "../../../../preprocessed_data"
 RESAMPLING_FREQUENCY = 128
 
-PRETRAIN_MODEL_FILEPATH = "../../pretrain_models/densenet121-a639ec97.pth"
+PRETRAIN_MODEL_FILEPATH = "densenet121-a639ec97.pth"
 TRAIN_LOG_FILE_NAME = "training_log.csv"
 
 # Tests
