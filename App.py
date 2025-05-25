@@ -82,13 +82,6 @@ st.markdown("""
     color: #721c24;
     border: 2px solid #dc3545;
 }
-.upload-section {
-    border: 2px dashed #ccc;
-    border-radius: 10px;
-    padding: 2rem;
-    text-align: center;
-    background-color: #f8f9fa;
-}
 .debug-section {
     border: 1px solid #e9ecef;
     border-radius: 5px;
@@ -254,7 +247,54 @@ def find_patient_folders(base_path, debug_mode=False):
     return patient_folders
 
 def main():
-    st.markdown('<h1 class="main-header">🧠 EEG Prediction System</h1>', unsafe_allow_html=True)
+    # st.markdown('<h1 class="main-header">🧠 EEG Prediction System</h1>', unsafe_allow_html=True)
+    # HEADER
+    st.markdown(
+    """
+    <style>
+    .header-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 20px;
+        background-color: #f0f2f6;
+        border-bottom: 2px solid #ccc;
+    }
+    .left-section, .right-section {
+        display: flex;
+        align-items: center;
+    }
+    .left-section img, .right-section img {
+        height: 80px;
+        margin-right: 15px;
+        margin-left: 15px;
+    }
+    .left-text, .right-text {
+        font-size: 18px;
+        font-weight: bold;
+        line-height: 1.4;
+    }
+    </style>
+    <div class="header-container">
+        <div class="left-section">
+            <img src="https://upload.wikimedia.org/wikipedia/vi/0/09/Logo_UIT_VN.png" alt="Logo Trường">
+            <div class="left-text">
+                TRƯỜNG ĐẠI HỌC CÔNG NGHỆ THÔNG TIN - ĐHQG-HCM<br>
+                KHOA HỆ THỐNG THÔNG TIN
+            </div>
+        </div>
+        <div class="right-section">
+            <div class="right-text">
+                DỰ ĐOÁN KHẢ NĂNG PHỤC HỒI THẦN KINH Ở BỆNH NHÂN HÔN MÊ SAU NGỪNG TIM<br>
+                SỬ DỤNG CÁC MÔ HÌNH HỌC SÂU
+            </div>
+            <img src="https://cdn-icons-png.flaticon.com/512/3209/3209265.png" alt="Logo Đề tài">
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True
+    )
+    # HEADER
     st.sidebar.header("⚙️ Cấu hình")
     debug_mode = st.sidebar.checkbox("🐛 Debug Mode", value=False, help="Show detailed folder structure and debugging info")
 
@@ -293,28 +333,28 @@ def main():
     col1, col2 = st.columns([2, 1])
     with col1:
         st.header("📁 Upload EEG Data")
-        st.markdown('<div class="upload-section">', unsafe_allow_html=True)
+        st.markdown('<div>', unsafe_allow_html=True)
         st.markdown("**📋 Hướng dẫn upload:**")
         st.markdown("""
         - Upload file ZIP.
         - File ZIP phải chứa các **folder đặt tên theo ID bệnh nhân** (ví dụ: 0391, 1234, patient_001).
         - Mỗi folder bệnh nhân phải chứa:
-          - File `.hea` (header file)
-          - File `.mat` (data file)
-          - Tùy chọn: File `.txt` (metadata bệnh nhân, nếu có sẽ đọc Outcome thực tế)
+            - File `.hea` (header file)
+            - File `.mat` (data file)
+            - Tùy chọn: File `.txt` (metadata bệnh nhân, nếu có sẽ đọc Outcome thực tế)
         - **Cấu trúc ZIP được khuyến nghị:**
-          ```
-          your_data.zip
-          ├── 0391/
-          │   ├── 0391.hea
-          │   ├── 0391.mat
-          │   └── (0391.txt)
-          ├── 1234/
-          │   ├── 1234.hea
-          │   ├── 1234.mat
-          │   └── (1234.txt)
-          └── ...
-          ```
+        ```
+            your_data.zip
+            ├── 0391/
+            │   ├── 0391.hea
+            │   ├── 0391.mat
+            │   └── (0391.txt)
+            ├── 1234/
+            │   ├── 1234.hea
+            │   ├── 1234.mat
+            │   └── (1234.txt)
+            └── ...
+        ```
         """)
         uploaded_files = st.file_uploader(
             "Chọn file ZIP chứa dữ liệu EEG",
@@ -336,7 +376,7 @@ def main():
                 return
 
             if not st.session_state.predictor.load_challenge_models_dynamic or \
-               not st.session_state.predictor.run_challenge_models_dynamic:
+                not st.session_state.predictor.run_challenge_models_dynamic:
                 st.error("❌ Model functions không được tải đúng cách. Vui lòng kiểm tra lựa chọn model và thông báo lỗi ở sidebar.")
                 return
 
@@ -472,8 +512,51 @@ def main():
 
     st.markdown("---")
     st.markdown(
-        f"<div style='text-align: center; color: #666;'>🧠 EEG Prediction System - Powered by {selected_model_display_name}</div>",
-        unsafe_allow_html=True
+    """
+    <style>
+    .header-container {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 20px;
+    }
+    .left-column {
+        flex: 1;
+        text-align: left;
+        padding: 10px;
+    }
+    .middle-column {
+        flex: 1;
+        text-align: center;
+        padding: 10px;
+    }
+    .right-column {
+        flex: 1;
+        text-align: right;
+        padding: 10px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+    )
+    st.markdown(
+    """
+    <div class="header-container">
+        <div class="left-column">
+            DỰ ĐOÁN KHẢ NĂNG PHỤC HỒI THẦN KINH Ở BỆNH NHÂN HÔN MÊ SAU NGỪNG TIM SỬ DỤNG CÁC MÔ HÌNH HỌC SÂU<br>
+            TP.HCM, tháng 6 năm 2025
+        </div>
+        <div class="middle-column">
+            Nhóm sinh viên thực hiện:<br>
+            LƯU HIẾU NGÂN – 21520358<br>
+            PHẠM DUY KHÁNH - 21522211
+        </div>
+        <div class="right-column">
+            GIẢNG VIÊN HƯỚNG DẪN<br>
+            ThS. DƯƠNG PHI LONG
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True
     )
 
 if __name__ == "__main__":
