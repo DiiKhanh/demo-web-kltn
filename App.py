@@ -269,40 +269,134 @@ def parse_metadata_file(file_path):
 
 def parse_hea_file(hea_file_path):
     """Parse WFDB header file to extract signal information"""
+    
+    def safe_float_convert(value_str, default=1.0):
+        """Safely convert string to float, handling WFDB special formats"""
+        if not value_str or value_str == '0':
+            return default
+        
+        try:
+            # Handle cases like '1.0(0)/nu' - extract the main number before parentheses
+            if '(' in value_str:
+                value_str = value_str.split('(')[0]
+            
+            # Handle cases with '/' - take the part before '/'
+            if '/' in value_str:
+                value_str = value_str.split('/')[0]
+            
+            return float(value_str)
+        except (ValueError, IndexError):
+            return default
+    
+    def safe_int_convert(value_str, default=0):
+        """Safely convert string to int"""
+        if not value_str:
+            return default
+        
+        try:
+            # Handle cases with parentheses or special characters
+            if '(' in value_str:
+                value_str = value_str.split('(')[0]
+            return int(float(value_str))  # Convert to float first to handle decimal inputs
+        except (ValueError, IndexError):
+            return default
+    
     try:
         with open(hea_file_path, 'r') as f:
             lines = f.readlines()
         
         header_info = {}
-        if lines:
-            # First line contains record info
-            record_line = lines[0].strip().split()
-            header_info['record_name'] = record_line[0]
-            header_info['n_signals'] = int(record_line[1])
-            header_info['sampling_freq'] = float(record_line[2])
-            header_info['n_samples'] = int(record_line[3])
+        if not lines:
+            return header_info
             
-            # Parse signal information
-            signals = []
-            for i in range(1, min(len(lines), header_info['n_signals'] + 1)):
-                signal_line = lines[i].strip().split()
-                if len(signal_line) >= 2:
-                    signal_info = {
-                        'filename': signal_line[0],
-                        'format': signal_line[1],
-                        'gain': float(signal_line[2]) if len(signal_line) > 2 and signal_line[2] != '0' else 1.0,
-                        'baseline': int(signal_line[3]) if len(signal_line) > 3 else 0,
-                        'units': signal_line[4] if len(signal_line) > 4 else 'mV',
-                        'description': ' '.join(signal_line[8:]) if len(signal_line) > 8 else f'Signal {i}'
-                    }
-                    signals.append(signal_info)
+        # First line contains record info
+        record_line = lines[0].strip().split()
+        if len(record_line) < 4:
+            st.error(f"Invalid header format in {hea_file_path}")
+            return {}
             
-            header_info['signals'] = signals
+        header_info['record_name'] = record_line[0]
+        header_info['n_signals'] = safe_int_convert(record_line[1])
+        header_info['sampling_freq'] = safe_float_convert(record_line[2], 250.0)  # Default to 250 Hz
+        header_info['n_samples'] = safe_int_convert(record_line[3])
+        
+        # Parse signal information
+        signals = []
+        for i in range(1, min(len(lines), header_info['n_signals'] + 1)):
+            signal_line = lines[i].strip().split()
+            if len(signal_line) >= 2:
+                signal_info = {
+                    'filename': signal_line[0],
+                    'format': signal_line[1],
+                    'gain': safe_float_convert(signal_line[2] if len(signal_line) > 2 else '1.0', 1.0),
+                    'baseline': safe_int_convert(signal_line[3] if len(signal_line) > 3 else '0', 0),
+                    'units': signal_line[4] if len(signal_line) > 4 else 'mV',
+                    'resolution': safe_int_convert(signal_line[5] if len(signal_line) > 5 else '0', 0),
+                    'zero': safe_int_convert(signal_line[6] if len(signal_line) > 6 else '0', 0),
+                    'first_value': safe_int_convert(signal_line[7] if len(signal_line) > 7 else '0', 0),
+                    'description': ' '.join(signal_line[8:]) if len(signal_line) > 8 else f'Signal {i}'
+                }
+                signals.append(signal_info)
+        
+        header_info['signals'] = signals
+        
+        # Log parsed information for debugging
+        print(f"Successfully parsed {hea_file_path}:")
+        print(f"  - Record: {header_info['record_name']}")
+        print(f"  - Signals: {header_info['n_signals']}")
+        print(f"  - Sampling frequency: {header_info['sampling_freq']} Hz")
+        print(f"  - Samples: {header_info['n_samples']}")
         
         return header_info
+        
+    except FileNotFoundError:
+        st.error(f"File không tồn tại: {hea_file_path}")
+        return {}
     except Exception as e:
         st.error(f"Lỗi khi đọc header file {hea_file_path}: {str(e)}")
+        # Print more detailed error information
+        print(f"Detailed error parsing {hea_file_path}: {type(e).__name__}: {str(e)}")
         return {}
+
+def parse_hea_file_with_wfdb(hea_file_path):
+    """Parse WFDB header file using the official wfdb library"""
+    try:
+        import wfdb
+        
+        # Extract record path without extension
+        record_path = hea_file_path.replace('.hea', '')
+        
+        # Read header information
+        record = wfdb.rdheader(record_path)
+        
+        header_info = {
+            'record_name': record.record_name,
+            'n_signals': record.n_sig,
+            'sampling_freq': record.fs,
+            'n_samples': record.sig_len,
+            'signals': []
+        }
+        
+        # Parse signal information
+        for i in range(record.n_sig):
+            signal_info = {
+                'filename': record.file_name[i] if record.file_name else f'signal_{i}',
+                'format': record.fmt[i] if record.fmt else 'unknown',
+                'gain': record.adc_gain[i] if record.adc_gain else 1.0,
+                'baseline': record.baseline[i] if record.baseline else 0,
+                'units': record.units[i] if record.units else 'mV',
+                'description': record.sig_name[i] if record.sig_name else f'Signal {i+1}'
+            }
+            header_info['signals'].append(signal_info)
+        
+        return header_info
+        
+    except ImportError:
+        st.warning("WFDB library not available. Using manual parser.")
+        return parse_hea_file(hea_file_path)
+    except Exception as e:
+        st.error(f"Lỗi khi đọc header với WFDB library: {str(e)}")
+        return parse_hea_file(hea_file_path)
 
 def load_mat_file(mat_file_path):
     """Load EEG signal data from MAT file"""
@@ -579,7 +673,7 @@ def visualize_patient_data(patient_folder_path, patient_id):
         mat_file_path = os.path.join(patient_folder_path, mat_files[0])
         
         # Parse header and load signal data
-        header_info = parse_hea_file(hea_file_path)
+        header_info = parse_hea_file_with_wfdb(hea_file_path)
         signal_data = load_mat_file(mat_file_path)
         
         if signal_data is not None:
