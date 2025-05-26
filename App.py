@@ -257,8 +257,9 @@ def main():
         justify-content: space-between;
         align-items: center;
         padding: 10px 20px;
-        background-color: #f0f2f6;
-        border-bottom: 2px solid #ccc;
+        background-color: #1e1e1e;
+        border-bottom: 2px solid #444;
+        color: #ffffff;
     }
     .left-section, .right-section {
         display: flex;
@@ -268,16 +269,18 @@ def main():
         height: 80px;
         margin-right: 15px;
         margin-left: 15px;
+        filter: brightness(0.9);
     }
     .left-text, .right-text {
         font-size: 18px;
         font-weight: bold;
         line-height: 1.4;
+        color: #ffffff;
     }
     </style>
     <div class="header-container">
         <div class="left-section">
-            <img src="https://upload.wikimedia.org/wikipedia/vi/0/09/Logo_UIT_VN.png" alt="Logo Trường">
+            <img src="https://www.uit.edu.vn/sites/vi/files/images/Logos/Logo_UIT_Web_Transparent.png" alt="Logo Trường">
             <div class="left-text">
                 TRƯỜNG ĐẠI HỌC CÔNG NGHỆ THÔNG TIN - ĐHQG-HCM<br>
                 KHOA HỆ THỐNG THÔNG TIN
@@ -288,7 +291,7 @@ def main():
                 DỰ ĐOÁN KHẢ NĂNG PHỤC HỒI THẦN KINH Ở BỆNH NHÂN HÔN MÊ SAU NGỪNG TIM<br>
                 SỬ DỤNG CÁC MÔ HÌNH HỌC SÂU
             </div>
-            <img src="https://cdn-icons-png.flaticon.com/512/3209/3209265.png" alt="Logo Đề tài">
+            <img src="https://cdn-icons-png.flaticon.com/512/9851/9851782.png" alt="Logo Đề tài">
         </div>
     </div>
     """,
@@ -453,7 +456,7 @@ def main():
                             # st.text(f"  Copied {len(copied_files)} files to {temp_patient_run_folder} for patient {patient_id}")
                     except Exception as e:
                         st.error(f"Error copying files for {patient_id}: {str(e)}")
-                        results.append({'Patient ID': patient_id, 'Prediction': 'Error - File Prep', 'Probability': "N/A", 'Actual': "N/A"})
+                        results.append({'Patient ID': patient_id, 'Prediction': 'Error - File Prep', 'Actual': "N/A"})
                         continue
                     
                     outcome_binary, outcome_prob, actual_outcome = st.session_state.predictor.predict_single_patient(
@@ -464,14 +467,14 @@ def main():
                         results.append({
                             'Patient ID': patient_id,
                             'Prediction': 'Good' if outcome_binary == 0 else 'Poor',
-                            'Probability': f"{outcome_prob:.4f}" if outcome_prob is not None else "N/A",
+                            # 'Probability': f"{outcome_prob:.4f}" if outcome_prob is not None else "N/A",
                             'Actual': actual_outcome if actual_outcome else "Unknown"
                         })
                     else:
                         results.append({
                             'Patient ID': patient_id,
                             'Prediction': 'Error - Prediction Failed',
-                            'Probability': "N/A",
+                            # 'Probability': "N/A",
                             'Actual': actual_outcome if actual_outcome else "N/A" # Keep actual if read
                         })
 
@@ -493,10 +496,15 @@ def main():
                     st.plotly_chart(fig, use_container_width=True)
                     st.subheader("💡 Kết quả chi tiết từng Patient")
                     for _, row in results_df.iterrows():
-                        patient_id, prediction, probability = row['Patient ID'], row['Prediction'], row['Probability']
-                        if prediction == 'Good': st.markdown(f'''<div class="prediction-result good-result">👤 {patient_id}: {prediction} (Prob: {probability})</div>''', unsafe_allow_html=True)
-                        elif prediction == 'Poor': st.markdown(f'''<div class="prediction-result poor-result">👤 {patient_id}: {prediction} (Prob: {probability})</div>''', unsafe_allow_html=True)
-                        else: st.error(f"👤 {patient_id}: {prediction} (Details: {probability})")
+                        # patient_id, prediction, probability = row['Patient ID'], row['Prediction'], row['Probability']
+                        # if prediction == 'Good': st.markdown(f'''<div class="prediction-result good-result">👤 {patient_id}: {prediction} (Prob: {probability})</div>''', unsafe_allow_html=True)
+                        # elif prediction == 'Poor': st.markdown(f'''<div class="prediction-result poor-result">👤 {patient_id}: {prediction} (Prob: {probability})</div>''', unsafe_allow_html=True)
+                        patient_id, prediction = row['Patient ID'], row['Prediction']
+                        if prediction == 'Good': 
+                            st.markdown(f'''<div class="prediction-result good-result">👤 {patient_id}: {prediction}</div>''', unsafe_allow_html=True)
+                        elif prediction == 'Poor': 
+                            st.markdown(f'''<div class="prediction-result poor-result">👤 {patient_id}: {prediction}</div>''', unsafe_allow_html=True)
+                        else: st.error(f"👤 {patient_id}: {prediction}")
                     good_count = sum(1 for r in results if r['Prediction'] == 'Good')
                     poor_count = sum(1 for r in results if r['Prediction'] == 'Poor')
                     error_count = sum(1 for r in results if 'Error' in r['Prediction'])
