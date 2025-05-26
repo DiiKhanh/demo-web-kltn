@@ -9,6 +9,9 @@ from pathlib import Path
 import pandas as pd
 import plotly.express as px
 import importlib  # Required for dynamic imports
+import plotly.graph_objects as go
+import numpy as np
+import scipy.io
 
 # Cấu hình đường dẫn
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -246,6 +249,346 @@ def find_patient_folders(base_path, debug_mode=False):
         st.warning(f"No patient folders found directly in {base_path} or its subdirectories.")
     return patient_folders
 
+# VISUALIZE
+def parse_metadata_file(file_path):
+    """Parse patient metadata from .txt file"""
+    metadata = {}
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        for line in content.strip().split('\n'):
+            if ':' in line:
+                key, value = line.split(':', 1)
+                metadata[key.strip()] = value.strip()
+        
+        return metadata
+    except Exception as e:
+        st.error(f"Lỗi khi đọc metadata file {file_path}: {str(e)}")
+        return {}
+
+def parse_hea_file(hea_file_path):
+    """Parse WFDB header file to extract signal information"""
+    try:
+        with open(hea_file_path, 'r') as f:
+            lines = f.readlines()
+        
+        header_info = {}
+        if lines:
+            # First line contains record info
+            record_line = lines[0].strip().split()
+            header_info['record_name'] = record_line[0]
+            header_info['n_signals'] = int(record_line[1])
+            header_info['sampling_freq'] = float(record_line[2])
+            header_info['n_samples'] = int(record_line[3])
+            
+            # Parse signal information
+            signals = []
+            for i in range(1, min(len(lines), header_info['n_signals'] + 1)):
+                signal_line = lines[i].strip().split()
+                if len(signal_line) >= 2:
+                    signal_info = {
+                        'filename': signal_line[0],
+                        'format': signal_line[1],
+                        'gain': float(signal_line[2]) if len(signal_line) > 2 else 1.0,
+                        'baseline': int(signal_line[3]) if len(signal_line) > 3 else 0,
+                        'units': signal_line[4] if len(signal_line) > 4 else 'mV',
+                        'description': ' '.join(signal_line[8:]) if len(signal_line) > 8 else f'Signal {i}'
+                    }
+                    signals.append(signal_info)
+            
+            header_info['signals'] = signals
+        
+        return header_info
+    except Exception as e:
+        st.error(f"Lỗi khi đọc header file {hea_file_path}: {str(e)}")
+        return {}
+
+def load_mat_file(mat_file_path):
+    """Load EEG signal data from MAT file"""
+    try:
+        mat_data = scipy.io.loadmat(mat_file_path)
+        
+        # Find the actual data variable (exclude metadata keys)
+        data_keys = [k for k in mat_data.keys() if not k.startswith('__')]
+        
+        if data_keys:
+            # Usually the signal data is stored in 'val' or similar key
+            main_key = data_keys[0]
+            signal_data = mat_data[main_key]
+            
+            # Ensure data is 2D (channels x samples)
+            if signal_data.ndim == 1:
+                signal_data = signal_data.reshape(1, -1)
+            
+            return signal_data
+        else:
+            st.error("Không tìm thấy dữ liệu signal trong file MAT")
+            return None
+            
+    except Exception as e:
+        st.error(f"Lỗi khi đọc MAT file {mat_file_path}: {str(e)}")
+        return None
+
+def visualize_patient_metadata(metadata_dict, patient_id):
+    """Display patient metadata in a formatted table"""
+    st.subheader(f"📋 Thông tin bệnh nhân: {patient_id}")
+    
+    if metadata_dict:
+        # Create a formatted dataframe for display
+        metadata_df = pd.DataFrame([
+            {"Thông tin": "Patient ID", "Giá trị": metadata_dict.get('Patient', 'N/A')},
+            {"Thông tin": "Bệnh viện", "Giá trị": metadata_dict.get('Hospital', 'N/A')},
+            {"Thông tin": "Tuổi", "Giá trị": metadata_dict.get('Age', 'N/A')},
+            {"Thông tin": "Giới tính", "Giá trị": metadata_dict.get('Sex', 'N/A')},
+            {"Thông tin": "ROSC (phút)", "Giá trị": metadata_dict.get('ROSC', 'N/A')},
+            {"Thông tin": "OHCA", "Giá trị": metadata_dict.get('OHCA', 'N/A')},
+            {"Thông tin": "Shockable Rhythm", "Giá trị": metadata_dict.get('Shockable Rhythm', 'N/A')},
+            {"Thông tin": "TTM (°C)", "Giá trị": metadata_dict.get('TTM', 'N/A')},
+            {"Thông tin": "Kết quả", "Giá trị": metadata_dict.get('Outcome', 'N/A')},
+            {"Thông tin": "CPC Score", "Giá trị": metadata_dict.get('CPC', 'N/A')}
+        ])
+        
+        # Color code the outcome
+        def highlight_outcome(val):
+            if 'Kết quả' in str(val):
+                return 'background-color: #721c24'
+            elif 'Good' in str(val):
+                return 'background-color: #d4edda; color: #155724'
+            elif 'Poor' in str(val):
+                return 'background-color: #f8d7da; color: #721c24'
+            return ''
+        
+        styled_df = metadata_df.style.applymap(highlight_outcome)
+        st.dataframe(styled_df, use_container_width=True, hide_index=True)
+        
+        # Additional insights
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            outcome = metadata_dict.get('Outcome', 'Unknown')
+            if outcome == 'Good':
+                st.success(f"✅ Kết quả: {outcome}")
+            elif outcome == 'Poor':
+                st.error(f"❌ Kết quả: {outcome}")
+            else:
+                st.info(f"❓ Kết quả: {outcome}")
+        
+        with col2:
+            age = metadata_dict.get('Age', 'N/A')
+            st.metric("Tuổi", age)
+        
+        with col3:
+            cpc = metadata_dict.get('CPC', 'N/A')
+            st.metric("CPC Score", cpc)
+    else:
+        st.warning("Không có thông tin metadata cho bệnh nhân này")
+
+def visualize_eeg_signals(signal_data, header_info, patient_id, max_duration=60):
+    """Visualize EEG signals with interactive plots"""
+    st.subheader(f"🧠 Tín hiệu EEG - Bệnh nhân: {patient_id}")
+    
+    if signal_data is None or header_info is None:
+        st.error("Không thể tải dữ liệu EEG")
+        return
+    
+    # Get basic info
+    n_channels, n_samples = signal_data.shape
+    sampling_freq = header_info.get('sampling_freq', 250.0)  # Default 250 Hz
+    duration_seconds = n_samples / sampling_freq
+    
+    # Display signal information
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Số kênh", n_channels)
+    with col2:
+        st.metric("Tần số lấy mẫu", f"{sampling_freq:.1f} Hz")
+    with col3:
+        st.metric("Số mẫu", f"{n_samples:,}")
+    with col4:
+        st.metric("Thời lượng", f"{duration_seconds/60:.1f} phút")
+    
+    # Time axis
+    time_axis = np.arange(n_samples) / sampling_freq
+    
+    # Limit display duration for performance
+    if duration_seconds > max_duration:
+        st.info(f"⚠️ Hiển thị {max_duration} giây đầu tiên (tổng: {duration_seconds/60:.1f} phút)")
+        max_samples = int(max_duration * sampling_freq)
+        signal_data = signal_data[:, :max_samples]
+        time_axis = time_axis[:max_samples]
+        n_samples = max_samples
+    
+    # Channel selection
+    channel_names = []
+    if 'signals' in header_info and header_info['signals']:
+        channel_names = [sig.get('description', f'Channel {i+1}') for i, sig in enumerate(header_info['signals'])]
+    else:
+        channel_names = [f'Channel {i+1}' for i in range(n_channels)]
+    
+    # Interactive channel selection
+    selected_channels = st.multiselect(
+        "Chọn kênh EEG để hiển thị:",
+        options=list(range(n_channels)),
+        default=list(range(min(4, n_channels))),  # Default to first 4 channels
+        format_func=lambda x: channel_names[x] if x < len(channel_names) else f'Channel {x+1}'
+    )
+    
+    if not selected_channels:
+        st.warning("Vui lòng chọn ít nhất một kênh để hiển thị")
+        return
+    
+    # Plotting options
+    col1, col2 = st.columns(2)
+    with col1:
+        plot_type = st.selectbox("Kiểu hiển thị:", ["Tách riêng", "Chồng lên nhau"])
+    with col2:
+        amplitude_scale = st.slider("Độ phóng đại biên độ:", 0.1, 5.0, 1.0, 0.1)
+    
+    # Create plots
+    if plot_type == "Tách riêng":
+        # Separate subplots for each channel
+        fig = go.Figure()
+        
+        for i, ch_idx in enumerate(selected_channels):
+            # Scale and offset signals for better visualization
+            offset = i * (np.std(signal_data[ch_idx]) * 4)
+            scaled_signal = signal_data[ch_idx] * amplitude_scale + offset
+            
+            fig.add_trace(go.Scatter(
+                x=time_axis,
+                y=scaled_signal,
+                mode='lines',
+                name=channel_names[ch_idx] if ch_idx < len(channel_names) else f'Channel {ch_idx+1}',
+                line=dict(width=1)
+            ))
+        
+        fig.update_layout(
+            title=f"Tín hiệu EEG - {patient_id}",
+            xaxis_title="Thời gian (giây)",
+            yaxis_title="Biên độ (μV)",
+            height=600,
+            showlegend=True,
+            hovermode='x unified'
+        )
+        
+    else:
+        # Overlapped signals
+        fig = go.Figure()
+        
+        colors = px.colors.qualitative.Set1
+        for i, ch_idx in enumerate(selected_channels):
+            fig.add_trace(go.Scatter(
+                x=time_axis,
+                y=signal_data[ch_idx] * amplitude_scale,
+                mode='lines',
+                name=channel_names[ch_idx] if ch_idx < len(channel_names) else f'Channel {ch_idx+1}',
+                line=dict(width=1, color=colors[i % len(colors)])
+            ))
+        
+        fig.update_layout(
+            title=f"Tín hiệu EEG (Chồng lên) - {patient_id}",
+            xaxis_title="Thời gian (giây)",
+            yaxis_title="Biên độ (μV)",
+            height=500,
+            showlegend=True,
+            hovermode='x unified'
+        )
+    
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Signal statistics
+    st.subheader("📊 Thống kê tín hiệu")
+    stats_data = []
+    for ch_idx in selected_channels:
+        channel_data = signal_data[ch_idx]
+        stats_data.append({
+            'Kênh': channel_names[ch_idx] if ch_idx < len(channel_names) else f'Channel {ch_idx+1}',
+            'Trung bình': f"{np.mean(channel_data):.2f} μV",
+            'Độ lệch chuẩn': f"{np.std(channel_data):.2f} μV",
+            'Min': f"{np.min(channel_data):.2f} μV",
+            'Max': f"{np.max(channel_data):.2f} μV",
+            'RMS': f"{np.sqrt(np.mean(channel_data**2)):.2f} μV"
+        })
+    
+    stats_df = pd.DataFrame(stats_data)
+    st.dataframe(stats_df, use_container_width=True, hide_index=True)
+    
+    # Power spectral density (optional)
+    if st.checkbox("Hiển thị phân tích tần số (PSD)"):
+        st.subheader("📈 Mật độ phổ công suất (PSD)")
+        
+        fig_psd = go.Figure()
+        for ch_idx in selected_channels[:4]:  # Limit to 4 channels for PSD
+            # Compute PSD using Welch's method
+            from scipy import signal as scipy_signal
+            freqs, psd = scipy_signal.welch(signal_data[ch_idx], sampling_freq, nperseg=1024)
+            
+            # Only show frequencies up to 50 Hz (typical EEG range)
+            freq_mask = freqs <= 50
+            freqs = freqs[freq_mask]
+            psd = psd[freq_mask]
+            
+            fig_psd.add_trace(go.Scatter(
+                x=freqs,
+                y=10 * np.log10(psd),  # Convert to dB
+                mode='lines',
+                name=channel_names[ch_idx] if ch_idx < len(channel_names) else f'Channel {ch_idx+1}',
+                line=dict(width=2)
+            ))
+        
+        fig_psd.update_layout(
+            title="Mật độ phổ công suất",
+            xaxis_title="Tần số (Hz)",
+            yaxis_title="PSD (dB/Hz)",
+            height=400,
+            showlegend=True
+        )
+        
+        st.plotly_chart(fig_psd, use_container_width=True)
+
+def visualize_patient_data(patient_folder_path, patient_id):
+    """Main function to visualize all patient data"""
+    st.markdown("---")
+    st.header(f"🔍 Dữ liệu chi tiết - Bệnh nhân: {patient_id}")
+    
+    # Find files
+    files_in_folder = os.listdir(patient_folder_path)
+    txt_files = [f for f in files_in_folder if f.endswith('.txt')]
+    hea_files = [f for f in files_in_folder if f.endswith('.hea')]
+    mat_files = [f for f in files_in_folder if f.endswith('.mat')]
+    
+    # Display file information
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Files .txt", len(txt_files))
+    with col2:
+        st.metric("Files .hea", len(hea_files))
+    with col3:
+        st.metric("Files .mat", len(mat_files))
+    
+    # Visualize metadata
+    if txt_files:
+        txt_file_path = os.path.join(patient_folder_path, txt_files[0])
+        metadata = parse_metadata_file(txt_file_path)
+        visualize_patient_metadata(metadata, patient_id)
+    
+    # Visualize EEG signals
+    if hea_files and mat_files:
+        # Use the first pair of hea/mat files
+        hea_file_path = os.path.join(patient_folder_path, hea_files[0])
+        mat_file_path = os.path.join(patient_folder_path, mat_files[0])
+        
+        # Parse header and load signal data
+        header_info = parse_hea_file(hea_file_path)
+        signal_data = load_mat_file(mat_file_path)
+        
+        if signal_data is not None:
+            visualize_eeg_signals(signal_data, header_info, patient_id)
+        else:
+            st.error("Không thể tải dữ liệu tín hiệu EEG")
+    else:
+        st.warning("Không tìm thấy files .hea hoặc .mat để hiển thị tín hiệu EEG")
+# VISUALIZE
 def main():
     # st.markdown('<h1 class="main-header">🧠 EEG Prediction System</h1>', unsafe_allow_html=True)
     # HEADER
@@ -496,15 +839,25 @@ def main():
                     st.plotly_chart(fig, use_container_width=True)
                     st.subheader("💡 Kết quả chi tiết từng Patient")
                     for _, row in results_df.iterrows():
-                        # patient_id, prediction, probability = row['Patient ID'], row['Prediction'], row['Probability']
-                        # if prediction == 'Good': st.markdown(f'''<div class="prediction-result good-result">👤 {patient_id}: {prediction} (Prob: {probability})</div>''', unsafe_allow_html=True)
-                        # elif prediction == 'Poor': st.markdown(f'''<div class="prediction-result poor-result">👤 {patient_id}: {prediction} (Prob: {probability})</div>''', unsafe_allow_html=True)
                         patient_id, prediction = row['Patient ID'], row['Prediction']
+                        patient_folder = os.path.join(prediction_input_dir, patient_id)
+                        st.write(f"Debug: Checking patient folder: {patient_folder}")
+                        
+                        if os.path.exists(patient_folder):
+                            st.write(f"Debug: Found patient folder: {patient_folder}, contents: {os.listdir(patient_folder)}")
+                            try:
+                                visualize_patient_data(patient_folder, patient_id)
+                            except Exception as e:
+                                st.error(f"Lỗi khi hiển thị dữ liệu cho bệnh nhân {patient_id}: {e}")
+                        else:
+                            st.warning(f"Không tìm thấy thư mục dữ liệu cho bệnh nhân {patient_id}")
+                        # In kết quả prediction
                         if prediction == 'Good': 
                             st.markdown(f'''<div class="prediction-result good-result">👤 {patient_id}: {prediction}</div>''', unsafe_allow_html=True)
                         elif prediction == 'Poor': 
                             st.markdown(f'''<div class="prediction-result poor-result">👤 {patient_id}: {prediction}</div>''', unsafe_allow_html=True)
-                        else: st.error(f"👤 {patient_id}: {prediction}")
+                        else:
+                            st.error(f"👤 {patient_id}: {prediction}")
                     good_count = sum(1 for r in results if r['Prediction'] == 'Good')
                     poor_count = sum(1 for r in results if r['Prediction'] == 'Poor')
                     error_count = sum(1 for r in results if 'Error' in r['Prediction'])
