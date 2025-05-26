@@ -290,7 +290,7 @@ def parse_hea_file(hea_file_path):
                     signal_info = {
                         'filename': signal_line[0],
                         'format': signal_line[1],
-                        'gain': float(signal_line[2]) if len(signal_line) > 2 else 1.0,
+                        'gain': float(signal_line[2]) if len(signal_line) > 2 and signal_line[2] != '0' else 1.0,
                         'baseline': int(signal_line[3]) if len(signal_line) > 3 else 0,
                         'units': signal_line[4] if len(signal_line) > 4 else 'mV',
                         'description': ' '.join(signal_line[8:]) if len(signal_line) > 8 else f'Signal {i}'
