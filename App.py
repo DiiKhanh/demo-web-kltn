@@ -10,6 +10,9 @@ import pandas as pd
 import plotly.express as px
 import importlib  # Required for dynamic imports
 
+from components.header import show_header
+from components.footer import show_footer
+from components.styles import load_css
 # Cấu hình đường dẫn
 current_dir = os.path.dirname(os.path.abspath(__file__))
 # Modified: Use current_dir since team_code_densenet.py is in the same directory as App.py
@@ -54,43 +57,8 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
-# CSS tùy chỉnh
-st.markdown("""
-<style>
-.main-header {
-    font-size: 3rem;
-    color: #1f77b4;
-    text-align: center;
-    margin-bottom: 2rem;
-}
-.prediction-result {
-    padding: 1rem;
-    border-radius: 10px;
-    text-align: center;
-    font-size: 1.5rem;
-    font-weight: bold;
-    margin: 1rem 0;
-}
-.good-result {
-    background-color: #d4edda;
-    color: #155724;
-    border: 2px solid #28a745;
-}
-.poor-result {
-    background-color: #f8d7da;
-    color: #721c24;
-    border: 2px solid #dc3545;
-}
-.debug-section {
-    border: 1px solid #e9ecef;
-    border-radius: 5px;
-    padding: 1rem;
-    background-color: #f8f9fa;
-    margin: 1rem 0;
-}
-</style>
-""", unsafe_allow_html=True)
+# Load CSS
+st.markdown(load_css(), unsafe_allow_html=True)
 
 class EEGPredictor:
     def __init__(self):
@@ -247,56 +215,7 @@ def find_patient_folders(base_path, debug_mode=False):
     return patient_folders
 
 def main():
-    # st.markdown('<h1 class="main-header">🧠 EEG Prediction System</h1>', unsafe_allow_html=True)
-    # HEADER
-    st.markdown(
-    """
-    <style>
-    .header-container {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 10px 20px;
-        background-color: #1e1e1e;
-        border-bottom: 2px solid #444;
-        color: #ffffff;
-    }
-    .left-section, .right-section {
-        display: flex;
-        align-items: center;
-    }
-    .left-section img, .right-section img {
-        height: 80px;
-        margin-right: 15px;
-        margin-left: 15px;
-        filter: brightness(0.9);
-    }
-    .left-text, .right-text {
-        font-size: 18px;
-        font-weight: bold;
-        line-height: 1.4;
-        color: #ffffff;
-    }
-    </style>
-    <div class="header-container">
-        <div class="left-section">
-            <img src="https://www.uit.edu.vn/sites/vi/files/images/Logos/Logo_UIT_Web_Transparent.png" alt="Logo Trường">
-            <div class="left-text">
-                TRƯỜNG ĐẠI HỌC CÔNG NGHỆ THÔNG TIN - ĐHQG-HCM<br>
-                KHOA HỆ THỐNG THÔNG TIN
-            </div>
-        </div>
-        <div class="right-section">
-            <div class="right-text">
-                DỰ ĐOÁN KHẢ NĂNG PHỤC HỒI THẦN KINH Ở BỆNH NHÂN HÔN MÊ SAU NGỪNG TIM<br>
-                SỬ DỤNG CÁC MÔ HÌNH HỌC SÂU
-            </div>
-            <img src="https://cdn-icons-png.flaticon.com/512/9851/9851782.png" alt="Logo Đề tài">
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True
-    )
+    show_header()
     # HEADER
     st.sidebar.header("⚙️ Cấu hình")
     debug_mode = st.sidebar.checkbox("🐛 Debug Mode", value=False, help="Show detailed folder structure and debugging info")
@@ -518,54 +437,7 @@ def main():
                 else:
                     st.error("❌ Không có kết quả prediction nào!")
 
-    st.markdown("---")
-    st.markdown(
-    """
-    <style>
-    .header-container {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 20px;
-    }
-    .left-column {
-        flex: 1;
-        text-align: left;
-        padding: 10px;
-    }
-    .middle-column {
-        flex: 1;
-        text-align: center;
-        padding: 10px;
-    }
-    .right-column {
-        flex: 1;
-        text-align: right;
-        padding: 10px;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-    )
-    st.markdown(
-    """
-    <div class="header-container">
-        <div class="left-column">
-            DỰ ĐOÁN KHẢ NĂNG PHỤC HỒI THẦN KINH Ở BỆNH NHÂN HÔN MÊ SAU NGỪNG TIM SỬ DỤNG CÁC MÔ HÌNH HỌC SÂU<br>
-            TP.HCM, tháng 6 năm 2025
-        </div>
-        <div class="middle-column">
-            Nhóm sinh viên thực hiện:<br>
-            LƯU HIẾU NGÂN – 21520358<br>
-            PHẠM DUY KHÁNH - 21522211
-        </div>
-        <div class="right-column">
-            GIẢNG VIÊN HƯỚNG DẪN<br>
-            ThS. DƯƠNG PHI LONG
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True
-    )
+    show_footer()
 
 if __name__ == "__main__":
     main()
