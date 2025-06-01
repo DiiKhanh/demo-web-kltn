@@ -13,6 +13,8 @@ import importlib  # Required for dynamic imports
 from components.header import show_header
 from components.footer import show_footer
 from components.styles import load_css
+from components.tutorial import show_tutorial
+from components.result import display_results
 # Cấu hình đường dẫn
 current_dir = os.path.dirname(os.path.abspath(__file__))
 # Modified: Use current_dir since team_code_densenet.py is in the same directory as App.py
@@ -254,30 +256,7 @@ def main():
 
     col1, col2 = st.columns([2, 1])
     with col1:
-        st.header("📁 Upload EEG Data")
-        st.markdown('<div>', unsafe_allow_html=True)
-        st.markdown("**📋 Hướng dẫn upload:**")
-        st.markdown("""
-        - Upload file ZIP.
-        - File ZIP phải chứa các **folder đặt tên theo ID bệnh nhân** (ví dụ: 0391, 1234, patient_001).
-        - Mỗi folder bệnh nhân phải chứa:
-            - File `.hea` (header file)
-            - File `.mat` (data file)
-            - Tùy chọn: File `.txt` (metadata bệnh nhân, nếu có sẽ đọc Outcome thực tế)
-        - **Cấu trúc ZIP được khuyến nghị:**
-        ```
-            your_data.zip
-            ├── 0391/
-            │   ├── 0391.hea
-            │   ├── 0391.mat
-            │   └── (0391.txt)
-            ├── 1234/
-            │   ├── 1234.hea
-            │   ├── 1234.mat
-            │   └── (1234.txt)
-            └── ...
-        ```
-        """)
+        show_tutorial()
         uploaded_files = st.file_uploader(
             "Chọn file ZIP chứa dữ liệu EEG",
             accept_multiple_files=True,
@@ -401,39 +380,7 @@ def main():
                 status_text.empty()
 
                 if results:
-                    st.header("📊 Kết Quả Prediction")
-                    results_df = pd.DataFrame(results)
-                    st.dataframe(results_df, use_container_width=True)
-                    st.subheader("📈 Phân phối Kết quả Prediction")
-                    prediction_counts = results_df['Prediction'].value_counts().reset_index()
-                    prediction_counts.columns = ['Prediction', 'Count']
-                    color_map = {'Good': '#28a745', 'Poor': '#dc3545', 'Error - Prediction Failed': '#ffc107', 'Error - File Prep': '#6c757d'}
-                    for pred_type in prediction_counts['Prediction']:
-                        if pred_type not in color_map: color_map[pred_type] = '#007bff'
-                    fig = px.bar(prediction_counts, x='Prediction', y='Count', color='Prediction', color_discrete_map=color_map, title="Số lượng theo từng loại Prediction", labels={'Count': 'Số lượng bệnh nhân', 'Prediction': 'Kết quả Dự đoán'})
-                    fig.update_layout(xaxis_title="Kết quả Dự đoán", yaxis_title="Số lượng bệnh nhân")
-                    st.plotly_chart(fig, use_container_width=True)
-                    st.subheader("💡 Kết quả chi tiết từng Patient")
-                    for _, row in results_df.iterrows():
-                        # patient_id, prediction, probability = row['Patient ID'], row['Prediction'], row['Probability']
-                        # if prediction == 'Good': st.markdown(f'''<div class="prediction-result good-result">👤 {patient_id}: {prediction} (Prob: {probability})</div>''', unsafe_allow_html=True)
-                        # elif prediction == 'Poor': st.markdown(f'''<div class="prediction-result poor-result">👤 {patient_id}: {prediction} (Prob: {probability})</div>''', unsafe_allow_html=True)
-                        patient_id, prediction = row['Patient ID'], row['Prediction']
-                        if prediction == 'Good': 
-                            st.markdown(f'''<div class="prediction-result good-result">👤 {patient_id}: {prediction}</div>''', unsafe_allow_html=True)
-                        elif prediction == 'Poor': 
-                            st.markdown(f'''<div class="prediction-result poor-result">👤 {patient_id}: {prediction}</div>''', unsafe_allow_html=True)
-                        else: st.error(f"👤 {patient_id}: {prediction}")
-                    good_count = sum(1 for r in results if r['Prediction'] == 'Good')
-                    poor_count = sum(1 for r in results if r['Prediction'] == 'Poor')
-                    error_count = sum(1 for r in results if 'Error' in r['Prediction'])
-                    col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
-                    with col_stat1: st.metric("Total Patients", len(results))
-                    with col_stat2: st.metric("Good Outcomes", good_count)
-                    with col_stat3: st.metric("Poor Outcomes", poor_count)
-                    with col_stat4: st.metric("Errors", error_count)
-                    csv_data = results_df.to_csv(index=False).encode('utf-8')
-                    st.download_button(label="📥 Download Results (CSV)", data=csv_data, file_name=f"eeg_predictions_{selected_model_display_name.replace('/','_').replace(' ','_')}_{int(time.time())}.csv", mime="text/csv")
+                    display_results(results, selected_model_display_name)
                 else:
                     st.error("❌ Không có kết quả prediction nào!")
 
