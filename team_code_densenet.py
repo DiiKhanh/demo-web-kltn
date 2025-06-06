@@ -45,6 +45,7 @@ from tqdm import tqdm
 from helper_code import *
 
 import warnings
+from huggingface_hub import hf_hub_download
 
 
 
@@ -332,17 +333,41 @@ def train_challenge_model(data_folder, model_folder, patient_ids, verbose):
 # Load your trained models. This function is *required*. You should edit this function to add your code, but do *not* change the
 # arguments of this function.
 def load_challenge_models(model_folder, verbose):
-    model_folder = model_folder.lower()
-    filename = os.path.join(model_folder, "models.sav")
+    # model_folder = model_folder.lower()
+    # filename = os.path.join(model_folder, "models.sav")
+    # model = joblib.load(filename)
+    # file_path_eeg = os.path.join(model_folder, "eeg", "checkpoint_best.pth")
+    # if USE_TORCH:
+    #     print("Load model...")
+    #     model["torch_model_eeg"] = load_last_pt_ckpt(
+    #         file_path_eeg, channel_size=len(EEG_CHANNELS)
+    #     )
+    # else:
+    #     model["torch_model_eeg"] = None
+    # Bỏ qua model_folder vì giờ dùng Hugging Face
+    repo_id = "diikhanh/pure-densenet121" # 🔁 Thay bằng repo của bạn
+
+    if verbose:
+        print(f"🔄 Đang tải model từ Hugging Face: {repo_id}")
+
+    # Tải file models.sav
+    filename = hf_hub_download(repo_id=repo_id, filename="densenet121/models.sav")
     model = joblib.load(filename)
-    file_path_eeg = os.path.join(model_folder, "eeg", "checkpoint_best.pth")
+
+    # Tải file EEG model (checkpoint_best.pth)
+    file_path_eeg = hf_hub_download(repo_id=repo_id, filename="densenet121/eeg/checkpoint_best.pth")
+
     if USE_TORCH:
-        print("Load model...")
+        if verbose:
+            print("🧠 Đang load torch EEG model...")
         model["torch_model_eeg"] = load_last_pt_ckpt(
             file_path_eeg, channel_size=len(EEG_CHANNELS)
         )
     else:
         model["torch_model_eeg"] = None
+
+    if verbose:
+        print("✅ Model đã load xong.")
     
     return model
 

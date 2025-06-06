@@ -91,21 +91,56 @@ class EEGPredictor:
         self.load_challenge_models_dynamic = load_func
         self.run_challenge_models_dynamic = run_func
 
+    # def load_models(self, model_physical_folder):
+    #     if not self.load_challenge_models_dynamic:
+    #         st.error("❌ Hàm tải model chưa được thiết lập. Vui lòng chọn model hợp lệ.")
+    #         return False
+    #     try:
+    #         if not self.is_loaded:
+    #             with st.spinner(f"Đang tải models cho {self.current_model_name} từ {model_physical_folder}..."):
+    #                 self.models = self.load_challenge_models_dynamic(model_physical_folder, verbose=1)
+    #                 self.is_loaded = True
+    #             st.success(f"✅ Models cho {self.current_model_name} từ {model_physical_folder} đã được tải thành công!")
+    #         else:
+    #             st.info(f"Models cho {self.current_model_name} đã được tải.")
+    #         return True
+    #     except Exception as e:
+    #         st.error(f"❌ Lỗi khi tải models cho {self.current_model_name} từ {model_physical_folder}: {str(e)}")
+    #         self.is_loaded = False
+    #         return False
     def load_models(self, model_physical_folder):
         if not self.load_challenge_models_dynamic:
             st.error("❌ Hàm tải model chưa được thiết lập. Vui lòng chọn model hợp lệ.")
             return False
+
         try:
             if not self.is_loaded:
-                with st.spinner(f"Đang tải models cho {self.current_model_name} từ {model_physical_folder}..."):
-                    self.models = self.load_challenge_models_dynamic(model_physical_folder, verbose=1)
+                # Chuyển từ đường dẫn local sang Hugging Face repo_id
+                repo_id_map = {
+                    "models/densenet121": "your-username/densenet121",
+                    "models/resnet50": "your-username/resnet50",
+                    "models/convnext": "your-username/convnext",
+                    "models/efficentnet-v2-s-72": "your-username/efficientnet-v2-s-72",
+                    # 👇 Nếu bạn có thêm improve model thì thêm vào đây
+                    # "models/improve/densenet121": "your-username/improve-densenet121"
+                }
+
+                repo_id = repo_id_map.get(model_physical_folder)
+                if not repo_id:
+                    st.error(f"❌ Không tìm thấy repo_id tương ứng với {model_physical_folder}")
+                    return False
+
+                with st.spinner(f"📦 Đang tải models cho {self.current_model_name} từ Hugging Face..."):
+                    self.models = self.load_challenge_models_dynamic(repo_id, verbose=True)
                     self.is_loaded = True
-                st.success(f"✅ Models cho {self.current_model_name} từ {model_physical_folder} đã được tải thành công!")
+
+                st.success(f"✅ Model {self.current_model_name} đã được tải thành công từ Hugging Face!")
             else:
-                st.info(f"Models cho {self.current_model_name} đã được tải.")
+                st.info(f"ℹ️ Model {self.current_model_name} đã được tải.")
             return True
+
         except Exception as e:
-            st.error(f"❌ Lỗi khi tải models cho {self.current_model_name} từ {model_physical_folder}: {str(e)}")
+            st.error(f"❌ Lỗi khi tải model {self.current_model_name}: {str(e)}")
             self.is_loaded = False
             return False
 
